@@ -33,8 +33,10 @@ fn main() -> Result<(), Box<dyn Error>>{
 
         for event in events.iter() {
             match event.token() {
-                SERVER => {
-                    let connection = server.accept();
+                SERVER => loop {
+                    let mut (connection, address) = match server.accept() {
+                        Ok((connection, address)) => (connection, address),
+                    }
                     drop(connection);
                 }
                 CLIENT => {
