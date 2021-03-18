@@ -13,15 +13,19 @@ const DATA: &[u8] = b"Hello world\n";
 
 fn main() -> Result<(), Box<dyn Error>>{
     let mut poll = Poll::new()?;
+    // Create storage for events.
     let mut events = Events::with_capacity(128);
 
+    // Setup the TCP server socket.
     let addr = "127.0.0.1:13265".parse().unwrap();
     let mut server = TcpListener::bind(addr)?;
 
     poll.registry()
         .register(&mut server, SERVER, Interest::READABLE)?;
 
+    // Map of `Token` -> `TcpStream`.
     let mut connections = HashMap::new();
+    // Unique token for each incoming connection.
     let mut unique_token = Token(SERVER.0 + 1);
 
     println!("You can connect to the server using `nc`:");
