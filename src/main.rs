@@ -40,8 +40,26 @@ fn main() -> Result<(), Box<dyn Error>>{
                 SERVER => loop {
                     let mut (connection, address) = match server.accept() {
                         Ok((connection, address)) => (connection, address),
-                    }
-                    drop(connection);
+                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                            // If we get a `WouldBlock` error we know our listner has no more incoming connections queued,
+                            // so we can return to polling and wait for some more.
+                        }
+                        Err(e) => {
+                            // If it was any other kind of error, something went wrong and we terminate with an error.
+                            return Err(e);
+                        }
+                    };
+
+                    println!("Accepted connection from: {}", address);
+
+                    let token = next(&mut unique_token);
+                    poll.registry().register(
+                        &mut connection,
+                        token,
+                        Interest::READABLE.add(Interest::WRITABLE)
+                    )?;
+
+                    connections.insert(token, connection);
                 }
                 CLIENT => {
                     if event.is_writable() {
