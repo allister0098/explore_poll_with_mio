@@ -60,19 +60,26 @@ fn main() -> Result<(), Box<dyn Error>>{
                     )?;
 
                     connections.insert(token, connection);
-                }
-                CLIENT => {
-                    if event.is_writable() {
-                        println!("socket is writable");
-                    }
-                    if event.is_readable() {
-                        println!("socket is readable");
-                    }
+                },
+                token => {
+                    // Maybe received on event for a TCP connection.
+                    let done = if let Some(connection) = connections.get_mut(&token) {
+                        handle_connection_event(poll.registry(), connection, event)?
+                    } else {
+                        false
+                    };
 
-                    return Ok(());
+                    if done {
+                        connections.remove(&token);
+                    }
                 }
-                _ => unreachable!(),
             }
         }
     }
+}
+
+fn next(current: &mut Token) => Token {
+    let next = current.0;
+    current.0 += 1;
+    Token(next)
 }
