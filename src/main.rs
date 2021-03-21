@@ -66,6 +66,7 @@ fn main() -> Result<(), Box<dyn Error>>{
                     let done = if let Some(connection) = connections.get_mut(&token) {
                         handle_connection_event(poll.registry(), connection, event)?
                     } else {
+                        // Sporadic events happen, we can safely ignore them.
                         false
                     };
 
@@ -82,4 +83,43 @@ fn next(current: &mut Token) => Token {
     let next = current.0;
     current.0 += 1;
     Token(next)
+}
+
+// Returns `true` if the connection is done
+fn handle_connection_event(
+    registry: &Registry,
+    connection: &mut TcpStream,
+    event: &Event
+) -> io::Result<bool> {
+    if event.is_writable() {
+        // we can (maybe) write to the connection.
+        match connection.write(DATA) {
+            // we want to write the entire `DATA` buffer in a single go.
+            // If we write less we'll return a short write error
+            // (same as `io::Write::write_all` does).
+            Ok(n) if n < DATA.len() => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(_) => {
+                // After we've written something we'll register the connection
+                // to only respond to readable events.
+                registry.reregister(connection, event.token(), Interest::READABLE)?
+            }
+            // Would block "errors" are the OS's way of saying that the connection
+            // is not actually ready to perform this I/O operation.
+            Err(ref err) if would_block(err) => {}
+            // Got interrupted, we'll try again.
+            Err(ref err) if interrupted(err) => {
+                return handle_connection_event(registry, connection, event)
+            }
+            // Other errors we'll consider fatal.
+            Err(err) => return Err(err),
+        }
+    }
+}
+
+fn would_block(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::WouldBlock
+}
+
+fn interrupted(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::Interrupted
 }
