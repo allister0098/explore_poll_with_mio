@@ -114,6 +114,21 @@ fn handle_connection_event(
             Err(err) => return Err(err),
         }
     }
+
+    if event.is_readable() {
+        let mut connection_closed = false;
+        let mut received_data = vec![0; 4096];
+        let mut bytes_read = 0;
+        // We can (maybe) read from the connection.
+        loop {
+            match connection.read(&mut received_data[bytes_read..]) {
+                Ok(0) => {
+                    // Reading 0 bytes means the other side has closed the connection
+                    // or is done writing, then so are we.
+                }
+            }
+        }
+    }
 }
 
 fn would_block(err: &io::Error) -> bool {
