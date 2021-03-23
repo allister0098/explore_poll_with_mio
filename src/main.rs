@@ -126,6 +126,12 @@ fn handle_connection_event(
                     // Reading 0 bytes means the other side has closed the connection
                     // or is done writing, then so are we.
                 }
+                Ok(n) => {
+                    bytes_read += n;
+                    if bytes_read == received_data.len() {
+                        received_data.resize(received_data.len() + 1024, 0);
+                    }
+                }
             }
         }
     }
