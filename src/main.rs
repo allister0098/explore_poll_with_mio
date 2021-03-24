@@ -132,9 +132,31 @@ fn handle_connection_event(
                         received_data.resize(received_data.len() + 1024, 0);
                     }
                 }
+                // Would block "errors" are the OS's way of saying that the
+                // connection is not actually ready to perform this I/O operation.
+                Err(ref err) if would_block(err) => break,
+                Err(ref err) if interrupted(err) => continue,
+                // Other errors we'll consider fatal.
+                Err(err) => return Err(err),
             }
         }
+
+        if bytes_read != 0 {
+            let received_data = &received_data[..bytes_read];
+            if let Ok(str_buf) = from_utf8(received_data) {
+                println!("Received data: {}", str_buf.trim_end());
+            } else {
+                println!("Received (none UTF-8) data: {:?}", received_data);
+            }
+        }
+
+        if connection_closed {
+            println!("Connection closed");
+            return Ok(true);
+        }
     }
+
+    Ok(false)
 }
 
 fn would_block(err: &io::Error) -> bool {
